@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Component } from 'react'
+import { useState, useMemo, useEffect, useRef, Component } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Search,
@@ -21,6 +21,17 @@ import {
 import { CITIES, COUNTRIES, INTERESTS, ROUTES } from './data'
 import RouteMap from './components/RouteMap'
 import BackgroundMap from './components/BackgroundMap'
+import { track } from './track'
+
+// Какой экран = какой шаг воронки (loading не считаем).
+const FUNNEL_STEP = {
+  splash: 'splash',
+  city: 'city',
+  interests: 'interests',
+  routes: 'routes',
+  detail: 'detail',
+  success: 'saved',
+}
 
 // Резолвер иконок lucide по имени из data.js
 const ICONS = { UtensilsCrossed, Palette, BookOpen, Sparkles, Trees, Users }
@@ -645,6 +656,16 @@ export default function App() {
     if (screen !== 'loading') return
     const t = setTimeout(() => setScreen('routes'), 2000)
     return () => clearTimeout(t)
+  }, [screen])
+
+  // Считаем воронку: каждый шаг — один раз за сессию (повторный заход назад не плюсует).
+  const tracked = useRef(new Set())
+  useEffect(() => {
+    const step = FUNNEL_STEP[screen]
+    if (step && !tracked.current.has(step)) {
+      tracked.current.add(step)
+      track(step)
+    }
   }, [screen])
 
   const restart = () => {

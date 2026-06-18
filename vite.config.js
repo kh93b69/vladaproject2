@@ -8,4 +8,11 @@ export default defineConfig({
     // Railway provides the host via env; allow all hosts so the proxy works.
     allowedHosts: true,
   },
+  server: {
+    // В dev (`npm run dev`) запросы статистики уходят на локальный сервер,
+    // если он запущен (`npm run start`). Не критично для прода.
+    proxy: {
+      '/api': 'http://localhost:4173',
+    },
+  },
 })
