@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Component } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Search,
@@ -32,6 +32,47 @@ const variants = {
   exit: { opacity: 0, x: -40 },
 }
 const transition = { type: 'spring', stiffness: 320, damping: 32 }
+
+// Перехватывает любые ошибки рендера и показывает понятное сообщение
+// вместо «белого экрана». Текст ошибки виден — это помогает диагностике.
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+  render() {
+    if (this.state.error) {
+      if (this.props.fallback) return this.props.fallback
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-4 bg-slate-50 p-8 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-3xl">
+            ⚠️
+          </div>
+          <h2 className="font-display text-2xl font-extrabold uppercase text-slate-900">
+            Что-то пошло не так
+          </h2>
+          <p className="text-sm text-slate-500">
+            Попробуйте перезагрузить страницу. Если не помогает — обновите кэш
+            (Ctrl/Cmd + Shift + R).
+          </p>
+          <pre className="max-h-32 w-full overflow-auto rounded-xl bg-slate-100 p-3 text-left text-xs text-rose-600">
+            {String(this.state.error?.message || this.state.error)}
+          </pre>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-2xl bg-gradient-to-r from-rose-600 to-orange-500 px-6 py-3 font-display text-base font-extrabold uppercase text-white shadow-lg shadow-rose-500/30"
+          >
+            Перезагрузить
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // Картинка с градиентным фолбэком (если фото не загрузилось — красивый градиент).
 function Photo({ src, gradient, className, children }) {
@@ -74,11 +115,16 @@ function SplashScreen({ onStart }) {
     <Screen>
       {/* Карта на фоне (см. референс) */}
       <div className="absolute inset-0">
-        <BackgroundMap center={[41.6938, 44.8015]} />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/40 to-white/95" />
+        {/* Базовый градиент — виден всегда, даже если карта/тайлы не загрузились */}
+        <div className="absolute inset-0 bg-gradient-to-br from-rose-100 via-orange-50 to-sky-100" />
+        <ErrorBoundary fallback={null}>
+          <BackgroundMap center={[41.6938, 44.8015]} />
+        </ErrorBoundary>
+        {/* Плотная белая подложка снизу, чтобы тёмный текст читался поверх карты */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-white/80 to-white" />
       </div>
 
-      <div className="relative z-10 flex h-full flex-col justify-between p-7 pb-10">
+      <div className="relative z-10 flex h-full flex-col justify-between p-6 pb-9">
         <div className="flex items-center gap-2 pt-2 text-rose-600">
           <Compass className="h-6 w-6" />
           <span className="font-display text-sm font-extrabold uppercase tracking-widest">
@@ -91,15 +137,15 @@ function SplashScreen({ onStart }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.6 }}
         >
-          <h1 className="font-display text-4xl font-black uppercase leading-[1.05] tracking-tight text-slate-900">
+          <h1 className="font-display text-[2rem] font-black uppercase leading-[1.05] tracking-tight text-slate-900 xs:text-4xl">
             Путешествуй
             <br />
             вместе с
           </h1>
-          <h1 className="mt-2 font-display text-6xl font-black uppercase leading-none tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-orange-500">
+          <h1 className="mt-1 break-words font-display text-[2.75rem] font-black uppercase leading-none tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-rose-600 to-orange-500 xs:text-5xl">
             MeetMates
           </h1>
-          <p className="mt-5 max-w-xs text-base font-medium text-slate-600">
+          <p className="mt-4 max-w-xs text-[15px] font-medium leading-snug text-slate-700">
             Находи локальных людей, маршруты и гидов в новом городе. Без туристических ловушек —
             только настоящие места.
           </p>
@@ -439,8 +485,16 @@ function DetailScreen({ city, route, onSave, onBack }) {
       <TopBar onBack={onBack} title="Детали маршрута" />
       <div className="flex-1 overflow-y-auto pb-28">
         {/* Карта ~40% высоты экрана */}
-        <div className="h-[40vh] w-full">
-          <RouteMap center={city.center} points={route.points} />
+        <div className="h-[40vh] w-full bg-slate-100">
+          <ErrorBoundary
+            fallback={
+              <div className="flex h-full items-center justify-center bg-slate-100 text-sm text-slate-400">
+                Карта временно недоступна
+              </div>
+            }
+          >
+            <RouteMap center={city.center} points={route.points} />
+          </ErrorBoundary>
         </div>
 
         <div className="px-6 pt-5">
@@ -601,9 +655,10 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-slate-900 p-0 sm:p-6">
-      {/* Каркас мобильного экрана */}
-      <div className="relative h-screen w-full max-w-md overflow-hidden bg-slate-50 shadow-2xl sm:h-[860px] sm:rounded-[2.5rem] sm:ring-8 sm:ring-slate-800">
+    <div className="flex min-h-screen min-h-[100dvh] w-full items-center justify-center overflow-x-hidden bg-slate-900 p-0 sm:p-6">
+      {/* Каркас мобильного экрана. max-h не даёт рамке вылезти за окно на десктопе. */}
+      <div className="relative h-screen h-[100dvh] w-full max-w-md overflow-hidden bg-slate-50 shadow-2xl sm:h-[860px] sm:max-h-[92dvh] sm:rounded-[2.5rem] sm:ring-8 sm:ring-slate-800">
+        <ErrorBoundary>
         <AnimatePresence mode="wait" initial={false}>
           {screen === 'splash' && (
             <SplashScreen key="splash" onStart={() => setScreen('city')} />
@@ -665,6 +720,7 @@ export default function App() {
             />
           )}
         </AnimatePresence>
+        </ErrorBoundary>
       </div>
     </div>
   )

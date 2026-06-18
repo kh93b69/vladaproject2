@@ -1,8 +1,19 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
+  // Градиенты карточек берутся из data.js динамически — защищаем их от очистки,
+  // иначе карточки могут стать «белыми на белом».
+  safelist: [
+    {
+      pattern:
+        /(from|via|to)-(rose|orange|amber|pink|fuchsia|violet|purple|blue|indigo|sky|cyan|teal|emerald|green)-(400|500|600)/,
+    },
+  ],
   theme: {
     extend: {
+      screens: {
+        xs: '400px',
+      },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         display: ['Montserrat', 'Inter', 'system-ui', 'sans-serif'],
